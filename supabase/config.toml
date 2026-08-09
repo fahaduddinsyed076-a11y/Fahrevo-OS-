@@ -1,0 +1,4 @@
+# Fahrevo OS — Supabase project configuration
+# project_id is the project ref from the Supabase project URL:
+# https://csutesdytvepazfmwvnk.supabase.co
+project_id = "csutesdytvepazfmwvnk"

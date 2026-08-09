@@ -1,0 +1,10 @@
+# Environment files (local secrets / per-machine config)
+.env
+.env.local
+
+# Supabase CLI local artifacts
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor
+.DS_Store
