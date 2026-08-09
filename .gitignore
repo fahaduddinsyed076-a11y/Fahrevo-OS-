@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# Node / build
+node_modules/
+
 # Supabase CLI local artifacts
 supabase/.temp/
 supabase/.branches/

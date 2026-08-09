@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#b5177e" />
+<title>Fahrevo OS</title>
+
+<style>
+  :root {
+    --brand: #b5177e;
+    --brand-dark: #8e1263;
+    --bg: #f6f4f7;
+    --card: #ffffff;
+    --ink: #201a1e;
+    --muted: #7b7280;
+    --line: #e6e1e6;
+    --ok: #157f4c;
+    --warn: #b8860b;
+    --danger: #c0392b;
+    --radius: 14px;
+    --nav-h: 62px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 17px;
+    line-height: 1.4;
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  }
+  header {
+    background: var(--brand);
+    color: #fff;
+    padding: 14px 16px calc(14px);
+    padding-top: calc(14px + env(safe-area-inset-top));
+    font-weight: 700;
+    font-size: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    letter-spacing: .3px;
+  }
+  header small { display:block; font-weight:400; font-size:12px; opacity:.8; margin-top:2px; }
+  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  label { display:block; font-size: 13px; font-weight:600; color: var(--muted); margin: 0 0 6px; text-transform: uppercase; letter-spacing:.4px; }
+  .field { margin-bottom: 14px; }
+  input, select, textarea {
+    width: 100%;
+    font-size: 17px;
+    padding: 13px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); border-color: var(--brand); }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237b7280' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat:no-repeat; background-position: right 12px center; padding-right: 36px; }
+  textarea { min-height: 70px; resize: vertical; }
+
+  .btn {
+    display: inline-flex; align-items:center; justify-content:center; gap:8px;
+    width: 100%;
+    font-size: 18px; font-weight: 700;
+    padding: 15px 16px;
+    border: none; border-radius: 12px;
+    background: var(--brand); color: #fff;
+    cursor: pointer;
+  }
+  .btn:active { background: var(--brand-dark); }
+  .btn:disabled { opacity: .55; }
+  .btn.secondary { background: #efeaef; color: var(--ink); }
+  .btn.small { width:auto; font-size: 14px; padding: 9px 12px; border-radius: 9px; }
+
+  .row { display:flex; gap:10px; }
+  .row > * { flex: 1; }
+
+  .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  .tile {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 26px 14px; text-align: center; cursor: pointer;
+  }
+  .tile:active { border-color: var(--brand); }
+  .tile .emoji { font-size: 34px; display:block; margin-bottom: 8px; }
+  .tile .t { font-weight: 700; font-size: 16px; }
+
+  .lineitem { border: 1px dashed var(--line); border-radius: 12px; padding: 12px; margin-bottom: 12px; position: relative; }
+  .lineitem .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .lineitem .rm { position:absolute; top:8px; right:8px; background:none; border:none; color:var(--danger); font-size:20px; cursor:pointer; padding:4px 8px; }
+
+  .total-bar { display:flex; justify-content:space-between; align-items:baseline; padding: 12px 4px; font-size: 15px; color: var(--muted); }
+  .total-bar b { font-size: 22px; color: var(--ink); }
+
+  .salepick { border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; cursor:pointer; }
+  .salepick.sel { border-color: var(--brand); background: #fdf2f9; }
+  .salepick .top { display:flex; justify-content:space-between; font-weight:700; }
+  .salepick .meta { font-size: 13px; color: var(--muted); margin-top: 3px; display:flex; justify-content:space-between; }
+  .salepick .pend { color: var(--danger); font-weight:700; }
+
+  .pill { display:inline-block; font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; }
+  .pill.Paid { background:#e3f5ec; color:var(--ok); }
+  .pill.Partial { background:#fdf3dd; color:var(--warn); }
+  .pill.Pending { background:#fdeaea; color:var(--danger); }
+
+  .confirm { text-align:center; padding: 22px 16px; }
+  .confirm .big { font-size: 40px; margin-bottom: 6px; }
+  .confirm .amt { font-size: 30px; font-weight: 800; margin: 8px 0; }
+  .confirm .lbl { color: var(--muted); font-size: 14px; }
+
+  .banner { border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+  .banner.err { background:#fdeaea; color: var(--danger); border:1px solid #f3c6c6; }
+  .banner.info { background:#eef4fd; color:#1b5fb0; border:1px solid #cfe0f7; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .empty { text-align:center; color: var(--muted); padding: 30px 10px; }
+
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: #fff; border-top: 1px solid var(--line);
+    display: flex; z-index: 10;
+  }
+  nav button {
+    flex: 1; background: none; border: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; color: var(--muted); font-size: 11px; font-weight: 600; padding: 6px 2px;
+  }
+  nav button .ic { font-size: 20px; }
+  nav button.active { color: var(--brand); }
+</style>
+</head>
+<body>
+
+<header>
+  Fahrevo OS
+  <small id="headerSub">Kitchen operations</small>
+</header>
+
+<main>
+  <div id="authBanner"></div>
+
+  <!-- HOME -->
+  <section class="view active" id="view-home">
+    <p class="muted" style="margin-top:0">Tap what you want to record.</p>
+    <div class="home-grid">
+      <div class="tile" onclick="go('sale')"><span class="emoji">🧾</span><span class="t">+ Sale</span></div>
+      <div class="tile" onclick="go('expense')"><span class="emoji">💸</span><span class="t">+ Expense</span></div>
+      <div class="tile" onclick="go('payment')"><span class="emoji">💰</span><span class="t">+ Payment</span></div>
+      <div class="tile" onclick="go('cash')"><span class="emoji">🏦</span><span class="t">+ Cash Adj.</span></div>
+    </div>
+  </section>
+
+  <!-- SALE -->
+  <section class="view" id="view-sale">
+    <div id="sale-form">
+      <div class="card">
+        <div class="field">
+          <label>Channel</label>
+          <select id="s_channel">
+            <option value="B2C_Direct">B2C Direct</option>
+            <option value="B2B">B2B</option>
+            <option value="Swiggy">Swiggy</option>
+            <option value="Zomato">Zomato</option>
+            <option value="WhatsApp">WhatsApp</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Customer name (optional)</label>
+          <input id="s_customer" type="text" placeholder="e.g. Walk-in / Ayesha" />
+        </div>
+      </div>
+
+      <div class="card">
+        <label>Line items</label>
+        <div id="s_items"></div>
+        <button class="btn secondary small" onclick="addLineItem()">+ Add item</button>
+        <div class="total-bar"><span>Gross total</span><b id="s_gross">₹0.00</b></div>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label>Discount</label>
+          <input id="s_discount" type="number" inputmode="decimal" value="0" min="0" step="0.01" oninput="updateGross()" />
+        </div>
+        <div class="field" id="s_commission_wrap" style="display:none">
+          <label>Platform commission</label>
+          <input id="s_commission" type="number" inputmode="decimal" value="0" min="0" step="0.01" oninput="updateGross()" />
+        </div>
+        <div class="field">
+          <label>Amount received now</label>
+          <input id="s_received" type="number" inputmode="decimal" value="0" min="0" step="0.01" oninput="updateGross()" />
+        </div>
+        <div class="total-bar"><span>Est. net (gross − disc − comm)</span><b id="s_netpreview">₹0.00</b></div>
+      </div>
+
+      <button class="btn" id="s_submit" onclick="submitSale()">Save sale</button>
+    </div>
+
+    <div id="sale-confirm" style="display:none"></div>
+  </section>
+
+  <!-- EXPENSE -->
+  <section class="view" id="view-expense">
+    <div id="expense-form">
+      <div class="card">
+        <div class="field">
+          <label>Category</label>
+          <select id="e_category">
+            <option>Raw Material</option><option>Packaging</option><option>Rent</option>
+            <option>Electricity</option><option>Staff</option><option>Delivery</option>
+            <option>Marketing</option><option>Equipment</option><option>Miscellaneous</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input id="e_date" type="date" />
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <input id="e_desc" type="text" placeholder="What was this for?" />
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <input id="e_amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <label>Payment method</label>
+          <select id="e_method"><option>Cash</option><option>Bank</option><option>UPI</option></select>
+        </div>
+      </div>
+      <button class="btn" id="e_submit" onclick="submitExpense()">Save expense</button>
+    </div>
+    <div id="expense-confirm" style="display:none"></div>
+  </section>
+
+  <!-- PAYMENT -->
+  <section class="view" id="view-payment">
+    <div id="payment-form">
+      <div id="p_list"><p class="muted">Loading unpaid sales…</p></div>
+      <div class="card" id="p_entry" style="display:none">
+        <div class="field">
+          <label>Amount received now</label>
+          <input id="p_amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <button class="btn" id="p_submit" onclick="submitPayment()">Record payment</button>
+      </div>
+    </div>
+    <div id="payment-confirm" style="display:none"></div>
+  </section>
+
+  <!-- CASH -->
+  <section class="view" id="view-cash">
+    <div id="cash-form">
+      <div class="card">
+        <div class="field">
+          <label>Type</label>
+          <select id="c_type"><option>Owner Deposit</option><option>Owner Withdrawal</option></select>
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <input id="c_amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <p class="muted" id="c_hint">Deposit adds cash in; withdrawal takes cash out.</p>
+      </div>
+      <button class="btn" id="c_submit" onclick="submitCash()">Save adjustment</button>
+    </div>
+    <div id="cash-confirm" style="display:none"></div>
+  </section>
+</main>
+
+<nav>
+  <button data-nav="home"    onclick="go('home')"    class="active"><span class="ic">🏠</span>Home</button>
+  <button data-nav="sale"    onclick="go('sale')"><span class="ic">🧾</span>Sale</button>
+  <button data-nav="expense" onclick="go('expense')"><span class="ic">💸</span>Expense</button>
+  <button data-nav="payment" onclick="go('payment')"><span class="ic">💰</span>Payment</button>
+  <button data-nav="cash"    onclick="go('cash')"><span class="ic">🏦</span>Cash</button>
+</nav>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const SUPABASE_URL = "https://csutesdytvepazfmwvnk.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_pzh1CeyHX0OilgFVE7A4kg_NtisLjC7";
+
+  const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  const money = (n) => "₹" + (Number(n) || 0).toFixed(2);
+  const $ = (id) => document.getElementById(id);
+
+  let products = [];      // {id, name, selling_price}
+  let selectedSaleId = null;
+
+  // ---- Auth (anonymous — keeps RLS authenticated-only) --------------------
+  async function ensureAuth() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) return true;
+    const { error } = await sb.auth.signInAnonymously();
+    if (error) {
+      $("authBanner").innerHTML =
+        '<div class="banner err"><b>Can\'t connect.</b> Enable anonymous sign-ins in ' +
+        'Supabase → Authentication → Providers/Sign In → “Allow anonymous sign-ins”, then reload.</div>';
+      return false;
+    }
+    return true;
+  }
+
+  // ---- Navigation ----------------------------------------------------------
+  window.go = function (name) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    $("view-" + name).classList.add("active");
+    document.querySelectorAll("nav button").forEach(b =>
+      b.classList.toggle("active", b.dataset.nav === name));
+    window.scrollTo(0, 0);
+    if (name === "sale")    resetSale();
+    if (name === "expense") resetExpense();
+    if (name === "payment") loadUnpaidSales();
+    if (name === "cash")    resetCash();
+  };
+
+  // ---- Products ------------------------------------------------------------
+  async function loadProducts() {
+    const { data, error } = await sb.from("products")
+      .select("id,name,selling_price").eq("active", true).order("name");
+    if (!error) products = data || [];
+  }
+  function productOptions(selectedId) {
+    let html = '<option value="">Select product…</option>';
+    for (const p of products) {
+      const sel = p.id === selectedId ? "selected" : "";
+      html += `<option value="${p.id}" data-price="${p.selling_price ?? 0}" ${sel}>${escapeHtml(p.name)}</option>`;
+    }
+    return html;
+  }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+  // ================= SCREEN 1: SALE ========================================
+  function resetSale() {
+    $("sale-form").style.display = "block";
+    $("sale-confirm").style.display = "none";
+    $("s_channel").value = "B2C_Direct";
+    $("s_customer").value = "";
+    $("s_discount").value = "0";
+    $("s_commission").value = "0";
+    $("s_received").value = "0";
+    $("s_items").innerHTML = "";
+    addLineItem();
+    onChannelChange();
+  }
+  $("s_channel").addEventListener("change", onChannelChange);
+  function onChannelChange() {
+    const ch = $("s_channel").value;
+    $("s_commission_wrap").style.display = (ch === "Swiggy" || ch === "Zomato") ? "block" : "none";
+  }
+
+  window.addLineItem = function () {
+    const idx = Date.now() + Math.floor(Math.random() * 1000);
+    const div = document.createElement("div");
+    div.className = "lineitem";
+    div.dataset.k = idx;
+    div.innerHTML = `
+      <button class="rm" title="Remove" onclick="removeLineItem(${idx})">×</button>
+      <div class="field" style="margin-bottom:10px">
+        <label>Product</label>
+        <select class="li-product" onchange="onProductPick(this)">${productOptions("")}</select>
+      </div>
+      <div class="row">
+        <div class="field" style="margin-bottom:0">
+          <label>Qty</label>
+          <input class="li-qty" type="number" inputmode="numeric" min="1" step="1" value="1" oninput="updateGross()" />
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Unit price</label>
+          <input class="li-price" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateGross()" />
+        </div>
+      </div>
+      <div class="sub">Line total: <span class="li-sub">₹0.00</span></div>`;
+    $("s_items").appendChild(div);
+    updateGross();
+  };
+  window.removeLineItem = function (k) {
+    const el = document.querySelector(`.lineitem[data-k="${k}"]`);
+    if (el && document.querySelectorAll(".lineitem").length > 1) el.remove();
+    updateGross();
+  };
+  window.onProductPick = function (selectEl) {
+    const opt = selectEl.selectedOptions[0];
+    const price = opt ? opt.getAttribute("data-price") : null;
+    if (price != null) {
+      const row = selectEl.closest(".lineitem");
+      row.querySelector(".li-price").value = Number(price).toFixed(2);
+    }
+    updateGross();
+  };
+  window.updateGross = function () {
+    let gross = 0;
+    document.querySelectorAll(".lineitem").forEach(row => {
+      const q = Number(row.querySelector(".li-qty").value) || 0;
+      const p = Number(row.querySelector(".li-price").value) || 0;
+      const sub = q * p;
+      row.querySelector(".li-sub").textContent = money(sub);
+      gross += sub;
+    });
+    $("s_gross").textContent = money(gross);
+    const disc = Number($("s_discount").value) || 0;
+    const comm = ($("s_commission_wrap").style.display !== "none") ? (Number($("s_commission").value) || 0) : 0;
+    $("s_netpreview").textContent = money(gross - disc - comm);
+  };
+
+  window.submitSale = async function () {
+    const btn = $("s_submit");
+    const items = [];
+    let valid = true;
+    document.querySelectorAll(".lineitem").forEach(row => {
+      const pid = row.querySelector(".li-product").value;
+      const qty = Number(row.querySelector(".li-qty").value);
+      const price = Number(row.querySelector(".li-price").value);
+      if (pid && qty > 0) items.push({ product_id: pid, quantity: qty, unit_price: price });
+    });
+    if (items.length === 0) { alert("Add at least one line item with a product and quantity."); return; }
+
+    const channel = $("s_channel").value;
+    const commission = (channel === "Swiggy" || channel === "Zomato") ? (Number($("s_commission").value) || 0) : 0;
+    const payload = {
+      channel,
+      customer_name: $("s_customer").value.trim() || null,
+      discount: Number($("s_discount").value) || 0,
+      platform_commission: commission,
+      amount_received: Number($("s_received").value) || 0,
+      payment_status: "Pending" // trigger overrides; provided to satisfy NOT NULL
+    };
+
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const { data: sale, error: e1 } = await sb.from("sales").insert(payload).select("id").single();
+      if (e1) throw e1;
+      const rows = items.map(it => ({ ...it, sale_id: sale.id }));
+      const { error: e2 } = await sb.from("sale_items").insert(rows);
+      if (e2) throw e2;
+      // Re-fetch so DB-calculated values are shown for verification.
+      const { data: finalSale, error: e3 } = await sb.from("sales")
+        .select("gross_amount,net_amount,amount_received,amount_pending,payment_status").eq("id", sale.id).single();
+      if (e3) throw e3;
+      showSaleConfirm(finalSale);
+    } catch (err) {
+      alert("Could not save sale: " + (err.message || err));
+    } finally {
+      btn.disabled = false; btn.textContent = "Save sale";
+    }
+  };
+
+  function showSaleConfirm(s) {
+    $("sale-form").style.display = "none";
+    const el = $("sale-confirm");
+    el.style.display = "block";
+    el.innerHTML = `
+      <div class="card confirm">
+        <div class="big">✅</div>
+        <div>Sale saved</div>
+        <div class="amt">${money(s.net_amount)}</div>
+        <div class="lbl">Net amount (calculated by database)</div>
+        <div style="margin:14px 0"><span class="pill ${s.payment_status}">${s.payment_status}</span></div>
+        <div class="muted">Gross ${money(s.gross_amount)} · Received ${money(s.amount_received)} · Pending ${money(s.amount_pending)}</div>
+      </div>
+      <button class="btn" onclick="resetSaleView()">+ New sale</button>
+      <button class="btn secondary" style="margin-top:10px" onclick="go('home')">Home</button>`;
+  }
+  window.resetSaleView = function () { resetSale(); };
+
+  // ================= SCREEN 2: EXPENSE =====================================
+  function resetExpense() {
+    $("expense-form").style.display = "block";
+    $("expense-confirm").style.display = "none";
+    $("e_category").selectedIndex = 0;
+    $("e_date").value = new Date().toISOString().slice(0, 10);
+    $("e_desc").value = "";
+    $("e_amount").value = "";
+    $("e_method").selectedIndex = 0;
+  }
+  window.submitExpense = async function () {
+    const amount = Number($("e_amount").value);
+    if (!(amount > 0)) { alert("Enter an amount greater than 0."); return; }
+    const btn = $("e_submit");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const { error } = await sb.from("expenses").insert({
+        expense_date: $("e_date").value || new Date().toISOString().slice(0, 10),
+        category: $("e_category").value,
+        description: $("e_desc").value.trim() || null,
+        amount,
+        payment_method: $("e_method").value
+      });
+      if (error) throw error;
+      $("expense-form").style.display = "none";
+      const el = $("expense-confirm");
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="card confirm">
+          <div class="big">✅</div><div>Expense saved</div>
+          <div class="amt">${money(amount)}</div>
+          <div class="lbl">${escapeHtml($("e_category").value)} · ${escapeHtml($("e_method").value)}</div>
+          <div class="muted" style="margin-top:10px">Cash ledger updated automatically (−${money(amount)}).</div>
+        </div>
+        <button class="btn" onclick="resetExpense()">+ New expense</button>
+        <button class="btn secondary" style="margin-top:10px" onclick="go('home')">Home</button>`;
+    } catch (err) {
+      alert("Could not save expense: " + (err.message || err));
+    } finally {
+      btn.disabled = false; btn.textContent = "Save expense";
+    }
+  };
+
+  // ================= SCREEN 3: PAYMENT =====================================
+  async function loadUnpaidSales() {
+    selectedSaleId = null;
+    $("payment-form").style.display = "block";
+    $("payment-confirm").style.display = "none";
+    $("p_entry").style.display = "none";
+    $("p_amount").value = "";
+    const list = $("p_list");
+    list.innerHTML = '<p class="muted">Loading unpaid sales…</p>';
+    const { data, error } = await sb.from("sales")
+      .select("id,customer_name,channel,net_amount,amount_pending,payment_status")
+      .in("payment_status", ["Pending", "Partial"])
+      .order("sale_date", { ascending: false });
+    if (error) { list.innerHTML = '<div class="banner err">Could not load sales: ' + escapeHtml(error.message) + '</div>'; return; }
+    if (!data || data.length === 0) { list.innerHTML = '<div class="empty">🎉 No pending or partial sales.</div>'; return; }
+    list.innerHTML = data.map(s => `
+      <div class="salepick" data-id="${s.id}" onclick="pickSale('${s.id}')">
+        <div class="top">
+          <span>${escapeHtml(s.customer_name || "No name")}</span>
+          <span class="pill ${s.payment_status}">${s.payment_status}</span>
+        </div>
+        <div class="meta">
+          <span>${escapeHtml(s.channel)} · Net ${money(s.net_amount)}</span>
+          <span class="pend">Due ${money(s.amount_pending)}</span>
+        </div>
+      </div>`).join("");
+  }
+  window.pickSale = function (id) {
+    selectedSaleId = id;
+    document.querySelectorAll(".salepick").forEach(el =>
+      el.classList.toggle("sel", el.dataset.id === id));
+    $("p_entry").style.display = "block";
+    $("p_amount").focus();
+  };
+  window.submitPayment = async function () {
+    if (!selectedSaleId) { alert("Pick a sale first."); return; }
+    const add = Number($("p_amount").value);
+    if (!(add > 0)) { alert("Enter an amount greater than 0."); return; }
+    const btn = $("p_submit");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const { data: cur, error: e1 } = await sb.from("sales")
+        .select("amount_received").eq("id", selectedSaleId).single();
+      if (e1) throw e1;
+      const newReceived = (Number(cur.amount_received) || 0) + add;
+      const { error: e2 } = await sb.from("sales")
+        .update({ amount_received: newReceived }).eq("id", selectedSaleId);
+      if (e2) throw e2;
+      const { data: s, error: e3 } = await sb.from("sales")
+        .select("net_amount,amount_received,amount_pending,payment_status").eq("id", selectedSaleId).single();
+      if (e3) throw e3;
+      $("payment-form").style.display = "none";
+      const el = $("payment-confirm");
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="card confirm">
+          <div class="big">✅</div><div>Payment recorded</div>
+          <div class="amt">${money(add)}</div>
+          <div class="lbl">received now</div>
+          <div style="margin:14px 0"><span class="pill ${s.payment_status}">${s.payment_status}</span></div>
+          <div class="muted">Total received ${money(s.amount_received)} · Still due ${money(s.amount_pending)}</div>
+        </div>
+        <button class="btn" onclick="go('payment')">Record another</button>
+        <button class="btn secondary" style="margin-top:10px" onclick="go('home')">Home</button>`;
+    } catch (err) {
+      alert("Could not record payment: " + (err.message || err));
+    } finally {
+      btn.disabled = false; btn.textContent = "Record payment";
+    }
+  };
+
+  // ================= SCREEN 4: CASH ADJUSTMENT =============================
+  function resetCash() {
+    $("cash-form").style.display = "block";
+    $("cash-confirm").style.display = "none";
+    $("c_type").selectedIndex = 0;
+    $("c_amount").value = "";
+  }
+  window.submitCash = async function () {
+    const amt = Number($("c_amount").value);
+    if (!(amt > 0)) { alert("Enter an amount greater than 0."); return; }
+    const type = $("c_type").value;
+    const signed = type === "Owner Withdrawal" ? -amt : amt;
+    const btn = $("c_submit");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const { error } = await sb.from("cash_ledger").insert({ type, amount: signed, reference_id: null });
+      if (error) throw error;
+      $("cash-form").style.display = "none";
+      const el = $("cash-confirm");
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="card confirm">
+          <div class="big">✅</div><div>${escapeHtml(type)} saved</div>
+          <div class="amt">${money(signed)}</div>
+          <div class="lbl">${signed < 0 ? "cash out" : "cash in"}</div>
+        </div>
+        <button class="btn" onclick="resetCash()">+ New adjustment</button>
+        <button class="btn secondary" style="margin-top:10px" onclick="go('home')">Home</button>`;
+    } catch (err) {
+      alert("Could not save adjustment: " + (err.message || err));
+    } finally {
+      btn.disabled = false; btn.textContent = "Save adjustment";
+    }
+  };
+
+  // ---- Boot ---------------------------------------------------------------
+  (async function boot() {
+    const ok = await ensureAuth();
+    if (!ok) return;
+    await loadProducts();
+    resetSale();
+  })();
+</script>
+</body>
+</html>

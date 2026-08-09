@@ -45,5 +45,53 @@ With the Supabase CLI linked to the project:
 supabase db push
 ```
 
-Or apply `supabase/migrations/20260809211923_initial_schema.sql` through the
-Supabase MCP / SQL editor.
+Or apply the migration files in `supabase/migrations/` through the Supabase
+MCP / SQL editor.
+
+## Stage 2 — Calculated logic
+
+`supabase/migrations/20260809220206_calculated_logic.sql` adds DB-level
+triggers/functions (no table changes): auto `line_total`, rolled-up
+`gross_amount`, derived `net_amount` / `amount_pending` / `payment_status`, and
+automatic `cash_ledger` entries for sale receipts and expense payments.
+
+## Stage 3 — Operations UI
+
+A single-file, mobile-first web app (`index.html`) for daily kitchen use. No
+build step — plain HTML/CSS/JS loading `@supabase/supabase-js` from a CDN.
+
+Four screens plus a home grid / bottom nav:
+
+1. **+ Sale** — channel, optional customer, one or more line items (product
+   dropdown, qty, auto-filled-but-editable unit price), live gross total,
+   discount, platform commission (shown only for Swiggy/Zomato), amount
+   received. Creates the `sales` row + `sale_items`; the DB triggers compute
+   net/pending/status. Confirmation shows the calculated net and status.
+2. **+ Expense** — category, date, description, amount, payment method.
+   Inserts `expenses`; the trigger writes the matching `cash_ledger` row.
+3. **+ Payment Received** — lists Pending/Partial sales; adds the entered
+   amount to `amount_received`; triggers recalc status and log the receipt.
+4. **+ Cash Adjustment** — Owner Deposit (positive) / Owner Withdrawal
+   (negative) written directly to `cash_ledger`.
+
+No amounts are calculated client-side — the app only writes inputs and reads
+back the database-calculated results.
+
+### Authentication
+
+RLS stays locked to authenticated users. The app signs in **anonymously**, so
+no login screen is needed. This requires anonymous sign-ins to be enabled:
+Supabase Dashboard → **Authentication → Sign In / Providers → Allow anonymous
+sign-ins** → on.
+
+### Deploying to Vercel
+
+The app is a static site (just `index.html`), so:
+
+1. In Vercel, **Add New → Project** and import this GitHub repo.
+2. Framework preset: **Other**. No build command or output directory needed
+   (Vercel serves `index.html` at the root).
+3. Deploy, then open the resulting URL on your phone.
+
+The Supabase URL and publishable key are embedded in `index.html` (both are
+safe public client values).
