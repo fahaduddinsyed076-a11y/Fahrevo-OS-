@@ -1,97 +1,86 @@
 # Fahrevo OS
 
-Business system for a dessert cloud kitchen. Built in phases.
+Business management & financial tracking system for the Fahrevo dessert /
+cloud-kitchen business. Built on the principle that **the database is the single
+source of truth** — all financial and inventory figures are derived from
+auditable transaction records using deterministic logic, never estimated.
 
-## Stage 1 — Database schema
+## Tech stack
 
-This stage sets up the Supabase connection and the core database schema only.
-No UI, no derived/calculated logic yet — those come in later stages.
+- **Next.js 14 (App Router)** + **TypeScript** + **Tailwind CSS**
+- **Supabase / PostgreSQL** (project ref `csutesdytvepazfmwvnk`)
+- **Supabase Auth** (email + password) with Row Level Security on every table
 
-### Supabase project
-
-- **URL:** https://csutesdytvepazfmwvnk.supabase.co
-- **Project ref:** `csutesdytvepazfmwvnk`
-
-Copy `.env.example` to `.env` for local use. The publishable key is a
-client-side key and is safe to expose in the browser.
-
-### Schema
-
-Five tables, created via `supabase/migrations/20260809211923_initial_schema.sql`:
-
-| Table         | Purpose                                                        |
-| ------------- | ------------------------------------------------------------- |
-| `products`    | Catalog of items sold.                                        |
-| `sales`       | Sales orders across channels (B2C, B2B, Swiggy, Zomato, etc). |
-| `sale_items`  | Line items per sale (FK → `sales`, FK → `products`).          |
-| `expenses`    | Business expenses by category and payment method.             |
-| `cash_ledger` | Cash in/out movements (positive = in, negative = out).        |
-
-**Enum types:** `sales_channel`, `payment_status`, `expense_category`,
-`payment_method`, `cash_ledger_type`.
-
-**Relationships:**
-- `sale_items.sale_id` → `sales.id` (on delete cascade)
-- `sale_items.product_id` → `products.id` (on delete restrict)
-
-**Security:** Row Level Security is enabled on all five tables with a simple
-authenticated-users-only policy for this stage.
-
-### Applying the migration
-
-With the Supabase CLI linked to the project:
+## Getting started (local)
 
 ```bash
-supabase db push
+cp .env.example .env.local   # public Supabase URL + publishable key
+npm install
+npm run dev                  # http://localhost:3000
 ```
 
-Or apply the migration files in `supabase/migrations/` through the Supabase
-MCP / SQL editor.
+## Database
 
-## Stage 2 — Calculated logic
+The schema lives in `supabase/migrations/`. Apply via the Supabase CLI
+(`supabase db push`) or the Supabase MCP / SQL editor. The current foundation
+migration is `20260809225400_foundation_schema.sql`.
 
-`supabase/migrations/20260809220206_calculated_logic.sql` adds DB-level
-triggers/functions (no table changes): auto `line_total`, rolled-up
-`gross_amount`, derived `net_amount` / `amount_pending` / `payment_status`, and
-automatic `cash_ledger` entries for sale receipts and expense payments.
+### Entities (12 tables)
 
-## Stage 3 — Operations UI
+`customers`, `suppliers`, `products`, `ingredients`, `recipes`, `sales`,
+`sale_items`, `purchases`, `purchase_items`, `expenses`,
+`inventory_transactions`, `payments`.
 
-A single-file, mobile-first web app (`index.html`) for daily kitchen use. No
-build step — plain HTML/CSS/JS loading `@supabase/supabase-js` from a CDN.
+Key design points:
 
-Four screens plus a home grid / bottom nav:
+- **Prices and costs are nullable** — the system never invents a value; unknown
+  fields show as `—` until the owner enters them.
+- **Inventory is a ledger.** `inventory_transactions` records every signed stock
+  movement; current stock is the derived `ingredient_stock` view, never a stored
+  editable number. A check constraint blocks invalid negative movements
+  (e.g. a `purchase` must be positive).
+- **Payments are separate** from sales/purchases/expenses, so revenue ≠ cash and
+  receivables/payables are computable.
+- **Auditability:** `created_at` / `updated_at` (auto-maintained), void columns
+  instead of destructive deletes on sales/purchases, and document sequences
+  (`S-`, `P-`, `PAY-`).
+- **RLS** is enabled on all tables with an authenticated-users-only policy.
 
-1. **+ Sale** — channel, optional customer, one or more line items (product
-   dropdown, qty, auto-filled-but-editable unit price), live gross total,
-   discount, platform commission (shown only for Swiggy/Zomato), amount
-   received. Creates the `sales` row + `sale_items`; the DB triggers compute
-   net/pending/status. Confirmation shows the calculated net and status.
-2. **+ Expense** — category, date, description, amount, payment method.
-   Inserts `expenses`; the trigger writes the matching `cash_ledger` row.
-3. **+ Payment Received** — lists Pending/Partial sales; adds the entered
-   amount to `amount_received`; triggers recalc status and log the receipt.
-4. **+ Cash Adjustment** — Owner Deposit (positive) / Owner Withdrawal
-   (negative) written directly to `cash_ledger`.
+## App structure
 
-No amounts are calculated client-side — the app only writes inputs and reads
-back the database-calculated results.
+```
+app/
+  page.tsx                 # routes to /dashboard or /login by auth state
+  login/page.tsx           # email/password sign in + create account
+  auth/signout/route.ts    # POST sign-out
+  (app)/                   # protected group (requires auth)
+    layout.tsx             # session guard + shell
+    dashboard/page.tsx     # actions + KPI placeholders (no fabricated numbers)
+    products/page.tsx      # Products section (CRUD)
+    ingredients/page.tsx   # Ingredients section (CRUD + derived stock)
+components/                # AppShell, ProductsClient, IngredientsClient
+lib/supabase/              # browser + server + middleware clients
+middleware.ts              # session refresh + route protection
+```
 
-### Authentication
+## Auth setup
 
-RLS stays locked to authenticated users. The app signs in **anonymously**, so
-no login screen is needed. This requires anonymous sign-ins to be enabled:
-Supabase Dashboard → **Authentication → Sign In / Providers → Allow anonymous
-sign-ins** → on.
+This build uses Supabase email/password auth. Enable it in the Supabase
+Dashboard → **Authentication → Providers → Email** (and, for instant login
+without inbox confirmation during setup, you may disable "Confirm email").
+Create the owner account from the app's **Create account** link or in
+Dashboard → Authentication → Users.
 
-### Deploying to Vercel
+## Deploy (Vercel)
 
-The app is a static site (just `index.html`), so:
+1. Import this repo in Vercel — the **Next.js** preset is detected automatically.
+2. Add environment variables `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` (values in `.env.example`).
+3. Deploy.
 
-1. In Vercel, **Add New → Project** and import this GitHub repo.
-2. Framework preset: **Other**. No build command or output directory needed
-   (Vercel serves `index.html` at the root).
-3. Deploy, then open the resulting URL on your phone.
+## Scope
 
-The Supabase URL and publishable key are embedded in `index.html` (both are
-safe public client values).
+This is the **foundation milestone**: schema, auth, app shell, navigation,
+dashboard placeholder, and the Products & Ingredients sections. Sales,
+purchases, expenses, payments, inventory movements, recipes, COGS/P&L reporting
+and the live dashboard are later milestones.
