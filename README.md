@@ -78,9 +78,39 @@ Dashboard → Authentication → Users.
    `NEXT_PUBLIC_SUPABASE_ANON_KEY` (values in `.env.example`).
 3. Deploy.
 
+## Milestone 2 — Sales, recipes & automatic inventory consumption
+
+Adds the operational engine on top of the foundation (additive migration
+`20260809232507_sales_engine.sql`, no tables dropped).
+
+- **Recipes** (`/recipes`) — configure per-product ingredient requirements
+  (quantity per one finished product, unit, wastage %). Estimated recipe cost
+  shown, or "Cost unavailable — missing ingredient cost" (never invented).
+  Incompatible units (e.g. `ml` for a `g` ingredient) are rejected in the DB.
+- **Sales** (`/sales`, `/sales/new`, `/sales/[id]`) — draft → confirm lifecycle
+  with B2B/B2C pricing (from `b2b_price`/`b2c_price`, editable, never assumed),
+  filters, search, and a full auditable sale detail.
+- **Automatic inventory consumption** — confirming a sale runs the atomic
+  `confirm_sale()` DB function: validates every product has a recipe, checks
+  sufficient stock, then writes `sale_consumption` ledger rows (with a COGS cost
+  snapshot) — all-or-nothing. No recipe or insufficient stock blocks the whole
+  sale; nothing is half-committed. Stock stays derived from the ledger.
+- **Payments & receivables** — derived deterministically from the `payments`
+  table (`payment_status`, `receivable`); no stored balance.
+- **Void** — `void_sale()` reverses consumption via correction rows and excludes
+  the sale from revenue/receivables while preserving the original (auditable).
+- **Product-wise sales** (`/reports/product-sales`) and **dashboard KPIs**
+  (today's revenue/orders/units/receivables) computed from confirmed sales.
+
+### Key database functions
+
+`confirm_sale(sale_id, amount_received, method, date)`,
+`void_sale(sale_id, reason)`, `recompute_sale_payment_status(sale_id)`,
+`convert_to_unit()`, `units_compatible()`; triggers maintain line/sale totals
+and payment status; views `sale_financials`, `sale_item_financials`,
+`ingredient_stock` (all `security_invoker`, so RLS is enforced for the caller).
+
 ## Scope
 
-This is the **foundation milestone**: schema, auth, app shell, navigation,
-dashboard placeholder, and the Products & Ingredients sections. Sales,
-purchases, expenses, payments, inventory movements, recipes, COGS/P&L reporting
-and the live dashboard are later milestones.
+Foundation + Milestone 2 are complete. Purchases, expenses, supplier payments,
+full P&L / cash-flow, and advanced reporting are later milestones.
