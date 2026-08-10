@@ -83,3 +83,54 @@ export type SaleItemFinancial = {
   has_recipe: boolean;
   line_cogs: number | null;
 };
+
+export type Supplier = {
+  id: string;
+  supplier_name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  payment_terms: string | null;
+  active_status: boolean;
+  notes: string | null;
+};
+
+export type PurchaseStatus = "draft" | "received" | "void";
+
+// View: public.purchase_financials
+export type PurchaseFinancial = {
+  purchase_id: string;
+  purchase_number: string;
+  purchase_date: string;
+  status: PurchaseStatus;
+  supplier_id: string | null;
+  subtotal: number;
+  tax: number;
+  final_amount: number;
+  payment_status: PaymentStatus;
+  amount_paid: number;
+  payable: number;
+};
+
+// View: public.expense_financials
+export type ExpenseFinancial = {
+  expense_id: string;
+  expense_date: string;
+  category: string;
+  description: string | null;
+  amount: number;
+  status: PaymentStatus;
+  amount_paid: number;
+  payable: number;
+};
+
+export type AppSettings = {
+  id: boolean;
+  business_name: string | null;
+  opening_cash: number | null;
+  opening_bank: number | null;
+  opening_upi: number | null;
+  opening_other: number | null;
+  opening_balance_date: string | null;
+  expense_categories: string[];
+};

@@ -6,10 +6,17 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/sales", label: "Sales", icon: "🧾" },
+  { href: "/purchases", label: "Purchases", icon: "📦" },
+  { href: "/expenses", label: "Expenses", icon: "💸" },
+  { href: "/payments", label: "Payments", icon: "💳" },
+  { href: "/inventory", label: "Inventory", icon: "📥" },
   { href: "/recipes", label: "Recipes", icon: "📖" },
   { href: "/products", label: "Products", icon: "🍰" },
   { href: "/ingredients", label: "Ingredients", icon: "🧂" },
-  { href: "/reports/product-sales", label: "Product sales", icon: "📈" },
+  { href: "/customers", label: "Customers", icon: "👤" },
+  { href: "/suppliers", label: "Suppliers", icon: "🚚" },
+  { href: "/reports", label: "Reports", icon: "📈" },
+  { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
 export default function AppShell({

@@ -110,7 +110,46 @@ Adds the operational engine on top of the foundation (additive migration
 and payment status; views `sale_financials`, `sale_item_financials`,
 `ingredient_stock` (all `security_invoker`, so RLS is enforced for the caller).
 
+## Milestone 3 — Purchases, expenses, payments, cash, payables & P&L
+
+Additive migration `20260810070923_operations_engine.sql` (no destructive
+changes) completes the operational and financial layer.
+
+- **Purchases** (`/purchases`) — draft → receive lifecycle. `confirm_purchase()`
+  atomically writes positive inventory receipts (converted to base units),
+  snapshots the actual cost, and updates each ingredient's current cost
+  (existing latest-cost method — no FIFO/weighted average). `void_purchase()`
+  reverses the receipt non-destructively.
+- **Expenses** (`/expenses`) — operating expenses (kept separate from inventory
+  purchases), editable categories, optional immediate payment.
+- **Payments** (`/payments`) — record received (against sales) and made
+  (against purchases/expenses). Payment status for sales/purchases/expenses is
+  derived from the `payments` table via one unified trigger.
+- **Suppliers & Customers** (`/suppliers`, `/customers`) with detail pages whose
+  totals (purchases/paid/payable, sales/received/receivable) come only from
+  transactions.
+- **Payables** (`/payables`) and **Cash flow** (`/cashflow`) — cash = opening
+  balance + receipts − payments per method; "not configured" shown when an
+  opening balance is unset (never assumed).
+- **Inventory** (`/inventory`) — derived stock, ledger, and stock adjustments
+  (adjustment/wastage/correction/return).
+- **Reports** (`/reports`) — P&L, sales, product-wise sales, purchases,
+  expenses, inventory. **Settings** (`/settings`) — business info, opening
+  balances, editable expense categories.
+- **Dashboard** — Today and This-Month KPIs (revenue, orders, COGS, gross/net
+  profit, expenses, cash received, receivables, payables, food-cost %), all
+  computed from source records. COGS/profit are flagged incomplete rather than
+  assuming zero when an ingredient cost is missing.
+
+### Added database functions/views
+
+`confirm_purchase()`, `void_purchase()`, `recompute_purchase_payment_status()`,
+`recompute_expense_payment_status()`, unified `fn_sync_payment_status`; purchase
+line/total triggers; `app_settings` (opening balances, categories);
+views `purchase_financials`, `expense_financials`.
+
 ## Scope
 
-Foundation + Milestone 2 are complete. Purchases, expenses, supplier payments,
-full P&L / cash-flow, and advanced reporting are later milestones.
+The three planned milestones (Foundation, Sales engine, Operations & financials)
+are complete. Tax/GST and platform-commission automation remain intentionally
+manual/configurable.
