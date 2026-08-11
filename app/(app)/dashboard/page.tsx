@@ -115,9 +115,9 @@ export default async function DashboardPage() {
   const anyIncomplete = !t.cogsComplete || !m.cogsComplete;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Dashboard</h1>
         <p className="mt-1 text-sm text-neutral-500">Your business at a glance — every figure is calculated from confirmed transactions.</p>
       </div>
 
@@ -139,8 +139,8 @@ export default async function DashboardPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">Record activity</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {ACTIONS.map((a) => (
-            <Link key={a.label} href={a.href} className="card flex flex-col items-center gap-2 py-5 text-center hover:border-brand">
-              <span className="text-2xl">{a.icon}</span><span className="text-xs font-semibold">{a.label}</span>
+            <Link key={a.label} href={a.href} className="card flex flex-col items-center gap-1.5 py-4 text-center transition-colors hover:border-brand hover:bg-brand-light/40">
+              <span className="text-xl">{a.icon}</span><span className="text-xs font-semibold">{a.label}</span>
             </Link>
           ))}
         </div>
@@ -268,12 +268,12 @@ function Kpi({
       <div className="flex items-start justify-between gap-2">
         <div className="text-xs font-medium text-neutral-500">{label}</div>
         {icon && (
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base ${iconBg ?? "bg-neutral-100"}`}>
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm ${iconBg ?? "bg-neutral-100"}`}>
             {icon}
           </span>
         )}
       </div>
-      <div className={`mt-2 text-2xl font-bold ${tone === "danger" ? "text-red-600" : ""}`}>{value}</div>
+      <div className={`mt-1.5 text-xl font-bold ${tone === "danger" ? "text-red-600" : ""}`}>{value}</div>
       {sub && <div className="mt-1 text-xs text-neutral-400">{sub}</div>}
     </div>
   );
