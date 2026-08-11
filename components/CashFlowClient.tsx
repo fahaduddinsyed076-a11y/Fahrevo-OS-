@@ -132,6 +132,12 @@ export default function CashFlowClient() {
 
       {showEdit && (
         <div className="card grid gap-4 sm:grid-cols-2">
+          <p className="text-sm text-neutral-500 sm:col-span-2">
+            Each payment method tracks its own opening balance separately — set only the ones
+            you actually use. A method left blank stays &quot;not configured&quot; and won&apos;t
+            contribute to its balance or to Available Capital (which sums whichever methods
+            below are configured).
+          </p>
           <div>
             <label className="label">Opening cash</label>
             <input className="input" type="number" step="0.01" value={f.opening_cash}

@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { estimateRecipeCost, type IngredientCostInfo, type RecipeCostLine } from "@/lib/recipeCost";
 import type { Product } from "@/lib/types";
 
 type FormState = {
   product_name: string;
   sku: string;
   category: string;
-  unit: string;
   selling_price: string;
   b2b_price: string;
   b2c_price: string;
@@ -19,7 +19,6 @@ const EMPTY: FormState = {
   product_name: "",
   sku: "",
   category: "",
-  unit: "",
   selling_price: "",
   b2b_price: "",
   b2c_price: "",
@@ -36,9 +35,14 @@ function price(v: number | null): string {
   return v == null ? "—" : "₹" + v.toFixed(2);
 }
 
+type RecipeLineRow = { product_id: string; ingredient_id: string; quantity_required: number; unit: RecipeCostLine["unit"] };
+type IngredientRow = { id: string; base_unit: IngredientCostInfo["base_unit"]; current_cost_per_base_unit: number | null };
+
 export default function ProductsClient() {
   const supabase = createClient();
   const [rows, setRows] = useState<Product[]>([]);
+  const [recipeLines, setRecipeLines] = useState<RecipeLineRow[]>([]);
+  const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,18 +52,32 @@ export default function ProductsClient() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("product_name");
-    if (error) setError(error.message);
-    else setRows((data as Product[]) ?? []);
+    const [p, r, i] = await Promise.all([
+      supabase.from("products").select("*").order("product_name"),
+      supabase.from("recipes").select("product_id,ingredient_id,quantity_required,unit"),
+      supabase.from("ingredients").select("id,base_unit,current_cost_per_base_unit"),
+    ]);
+    if (p.error) setError(p.error.message);
+    else setRows((p.data as Product[]) ?? []);
+    setRecipeLines((r.data as RecipeLineRow[]) ?? []);
+    setIngredients((i.data as IngredientRow[]) ?? []);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const ingredientById = useMemo(() => {
+    const m: Record<string, IngredientCostInfo> = {};
+    ingredients.forEach((i) => (m[i.id] = i));
+    return m;
+  }, [ingredients]);
+
+  function estCogs(productId: string): number | null {
+    const lines = recipeLines.filter((r) => r.product_id === productId);
+    return estimateRecipeCost(lines, ingredientById);
+  }
 
   function openAdd() {
     setEditingId(null);
@@ -73,7 +91,6 @@ export default function ProductsClient() {
       product_name: p.product_name,
       sku: p.sku ?? "",
       category: p.category ?? "",
-      unit: p.unit ?? "",
       selling_price: p.selling_price?.toString() ?? "",
       b2b_price: p.b2b_price?.toString() ?? "",
       b2c_price: p.b2c_price?.toString() ?? "",
@@ -106,7 +123,6 @@ export default function ProductsClient() {
       product_name: form.product_name.trim(),
       sku: form.sku.trim() || null,
       category: form.category.trim() || null,
-      unit: form.unit.trim() || null,
       selling_price: num(form.selling_price),
       b2b_price: num(form.b2b_price),
       b2c_price: num(form.b2c_price),
@@ -151,11 +167,6 @@ export default function ProductsClient() {
               <label className="label">Category</label>
               <input className="input" value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Unit (e.g. piece, box)</label>
-              <input className="input" value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })} />
             </div>
             <div>
               <label className="label">Selling price</label>
@@ -207,12 +218,15 @@ export default function ProductsClient() {
                 <th className="px-4 py-3">Selling</th>
                 <th className="px-4 py-3">B2B</th>
                 <th className="px-4 py-3">B2C</th>
+                <th className="px-4 py-3">Est. COGS</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((p) => (
+              {rows.map((p) => {
+                const cogs = estCogs(p.id);
+                return (
                 <tr key={p.id} className="border-b border-neutral-100 last:border-0">
                   <td className="px-4 py-3 font-medium">
                     {p.product_name}
@@ -223,6 +237,11 @@ export default function ProductsClient() {
                   <td className="px-4 py-3">{price(p.b2b_price)}</td>
                   <td className="px-4 py-3">{price(p.b2c_price)}</td>
                   <td className="px-4 py-3">
+                    {cogs == null
+                      ? <span className="text-amber-600">Cost unavailable</span>
+                      : <span className="font-medium">{price(cogs)}</span>}
+                  </td>
+                  <td className="px-4 py-3">
                     <span className={`badge ${p.active_status ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-600"}`}>
                       {p.active_status ? "Active" : "Inactive"}
                     </span>
@@ -231,7 +250,8 @@ export default function ProductsClient() {
                     <button className="text-sm font-semibold text-brand hover:underline" onClick={() => openEdit(p)}>Edit</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

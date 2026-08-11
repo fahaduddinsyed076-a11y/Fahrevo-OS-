@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { UNITS, type Unit } from "@/lib/constants";
-import { convertToUnit, unitsCompatible } from "@/lib/units";
+import { unitsCompatible } from "@/lib/units";
+import { estimateRecipeCost } from "@/lib/recipeCost";
 import { money } from "@/lib/format";
 import type { Ingredient, Product } from "@/lib/types";
 
@@ -62,21 +63,8 @@ export default function RecipesClient() {
     [recipes],
   );
 
-  // Estimated recipe cost = Σ (normalized quantity_required × cost/base unit).
-  // Per spec, the estimate uses the base recipe quantity (wastage excluded).
-  // Returns null when any required ingredient cost is missing.
   function estimatedCost(productId: string): number | null {
-    const rs = recipesFor(productId);
-    if (rs.length === 0) return null;
-    let total = 0;
-    for (const r of rs) {
-      const ing = ingredientById[r.ingredient_id];
-      if (!ing || ing.current_cost_per_base_unit == null) return null;
-      const normalized = convertToUnit(r.quantity_required, r.unit, ing.base_unit);
-      if (normalized == null) return null;
-      total += normalized * ing.current_cost_per_base_unit;
-    }
-    return total;
+    return estimateRecipeCost(recipesFor(productId), ingredientById);
   }
 
   function startEdit(productId: string) {

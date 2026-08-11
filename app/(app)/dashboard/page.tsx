@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { computeCapital, type PaymentForCapital } from "@/lib/capital";
 import { money, dateShort } from "@/lib/format";
-import type { AppSettings } from "@/lib/types";
 
 const ACTIONS = [
   { label: "Sale", icon: "🧾", href: "/sales/new" },
@@ -51,7 +49,7 @@ export default async function DashboardPage() {
   const [
     salesToday, salesMonth, expToday, expMonth, purPayable, expPayable,
     trendSales, monthReceipts, overheadsActive, recentSales, customersAll,
-    settingsRes, allPayments, totalReceivableRes,
+    totalReceivableRes,
   ] = await Promise.all([
     supabase.from("sale_financials").select("final_amount,cogs,receivable").eq("status", "confirmed").eq("sale_date", today),
     supabase.from("sale_financials").select("final_amount,cogs,receivable").eq("status", "confirmed").gte("sale_date", monthStart),
@@ -64,8 +62,6 @@ export default async function DashboardPage() {
     supabase.from("overheads").select("monthly_amount").eq("active_status", true),
     supabase.from("sale_financials").select("sale_id,sale_number,sale_date,sales_channel,customer_id,final_amount").eq("status", "confirmed").order("sale_date", { ascending: false }).limit(5),
     supabase.from("customers").select("id,customer_name,active_status"),
-    supabase.from("app_settings").select("*").eq("id", true).single(),
-    supabase.from("payments").select("direction,payment_method,amount"),
     // Total outstanding receivable across ALL confirmed sales (no date filter) —
     // matches how Payables is computed (also unscoped by date).
     supabase.from("sale_financials").select("receivable").eq("status", "confirmed"),
@@ -101,10 +97,16 @@ export default async function DashboardPage() {
   }
   const splitTotal = [...splitByMethod.values()].reduce((a, b) => a + b, 0);
 
-  // Available capital + bank balance (shared, deterministic — payments only).
-  const settings = (settingsRes.data as AppSettings) ?? null;
-  const capital = computeCapital(settings, (allPayments.data as PaymentForCapital[]) ?? []);
-  const bankRow = capital.rows.find((r) => r.method === "Bank");
+  // Break-even monitor — fixed-overhead recovery only, from real Overheads
+  // data. No per-channel unit sales targets: nothing configures those yet,
+  // so they are not shown rather than invented.
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dayOfMonth = now.getDate();
+  const beCostPerDay = daysInMonth > 0 ? overheadsMonthTotal / daysInMonth : 0;
+  const beConfigured = overheadsMonthTotal > 0;
+  const beTodayPct = beConfigured && beCostPerDay > 0 ? (t.revenue / beCostPerDay) * 100 : null;
+  const beMonthCost = beCostPerDay * dayOfMonth;
+  const beMonthPct = beConfigured && beMonthCost > 0 ? (m.revenue / beMonthCost) * 100 : null;
 
   const customers = (customersAll.data as { id: string; customer_name: string; active_status: boolean }[]) ?? [];
   const activeCustomerCount = customers.filter((c) => c.active_status).length;
@@ -120,19 +122,15 @@ export default async function DashboardPage() {
       </div>
 
       {/* Top KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Today's revenue" value={money(t.revenue)} sub={`${t.orders} order${t.orders === 1 ? "" : "s"} today`} />
-        <Kpi label="This month revenue" value={money(m.revenue)} sub={`${m.orders} order${m.orders === 1 ? "" : "s"} · AOV ${money(aov)}`} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Kpi icon="📈" iconBg="bg-emerald-100" label="Today's revenue" value={money(t.revenue)} sub={`${t.orders} order${t.orders === 1 ? "" : "s"} today`} />
+        <Kpi icon="🛒" iconBg="bg-blue-100" label="This month revenue" value={money(m.revenue)} sub={`${m.orders} order${m.orders === 1 ? "" : "s"} · AOV ${money(aov)}`} />
         <Kpi
+          icon="💹" iconBg="bg-brand-light"
           label="Net profit (month)"
           value={netProfitMonth == null ? money(m.revenue - m.cogs - expMonthTotal - overheadsMonthTotal) + "*" : money(netProfitMonth)}
           sub="After COGS, expenses & overheads"
           tone={netProfitMonth != null && netProfitMonth < 0 ? "danger" : "default"}
-        />
-        <Kpi
-          label="Available capital"
-          value={capital.totalKnown ? money(capital.totalBalance) : money(capital.totalBalance) + "*"}
-          sub="Opening + receipts − payments"
         />
       </div>
 
@@ -147,6 +145,29 @@ export default async function DashboardPage() {
           ))}
         </div>
       </section>
+
+      {/* Break-even monitor */}
+      <div className="card">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Break-even monitor</h2>
+          <span className="text-xs text-neutral-400">Fixed overhead recovery</span>
+        </div>
+        {!beConfigured ? (
+          <p className="text-sm text-neutral-400">
+            No active overheads configured yet. <Link href="/overheads" className="font-semibold text-brand hover:underline">Add some in Overheads →</Link>
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <div className="text-xs text-neutral-500">BE cost / day</div>
+              <div className="mt-1 text-xl font-bold">{money(beCostPerDay)}</div>
+              <div className="mt-1 text-xs text-neutral-400">{money(overheadsMonthTotal)} active overheads ÷ {daysInMonth} days</div>
+            </div>
+            <BeProgress label="Today" have={t.revenue} need={beCostPerDay} pct={beTodayPct} />
+            <BeProgress label="This month" have={m.revenue} need={beMonthCost} pct={beMonthPct} />
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Revenue trend */}
@@ -224,11 +245,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* Secondary strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Active customers" value={String(activeCustomerCount)} />
-        <Kpi label="Receivables" value={money(totalReceivable)} sub="Outstanding, all confirmed sales" />
-        <Kpi label="Payables" value={money(payables)} sub="Purchases + expenses" />
-        <Kpi label="Bank balance" value={bankRow?.balance == null ? "Not set" : money(bankRow.balance)} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Kpi icon="👤" iconBg="bg-violet-100" label="Active customers" value={String(activeCustomerCount)} />
+        <Kpi icon="⏳" iconBg="bg-amber-100" label="Receivables" value={money(totalReceivable)} sub="Outstanding, all confirmed sales" />
+        <Kpi icon="📤" iconBg="bg-rose-100" label="Payables" value={money(payables)} sub="Purchases + expenses" />
       </div>
 
       {anyIncomplete && (
@@ -238,12 +258,42 @@ export default async function DashboardPage() {
   );
 }
 
-function Kpi({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "default" | "danger" }) {
+function Kpi({
+  label, value, sub, tone, icon, iconBg,
+}: {
+  label: string; value: string; sub?: string; tone?: "default" | "danger"; icon?: string; iconBg?: string;
+}) {
   return (
     <div className="card">
-      <div className="text-xs font-medium text-neutral-500">{label}</div>
-      <div className={`mt-1 text-2xl font-bold ${tone === "danger" ? "text-red-600" : ""}`}>{value}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs font-medium text-neutral-500">{label}</div>
+        {icon && (
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base ${iconBg ?? "bg-neutral-100"}`}>
+            {icon}
+          </span>
+        )}
+      </div>
+      <div className={`mt-2 text-2xl font-bold ${tone === "danger" ? "text-red-600" : ""}`}>{value}</div>
       {sub && <div className="mt-1 text-xs text-neutral-400">{sub}</div>}
+    </div>
+  );
+}
+
+function BeProgress({ label, have, need, pct }: { label: string; have: number; need: number; pct: number | null }) {
+  const covered = pct != null && pct >= 100;
+  const width = pct == null ? 0 : Math.min(100, Math.max(0, pct));
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
+        <span>{label}</span>
+        <span className={`font-semibold ${covered ? "text-green-600" : "text-neutral-600"}`}>
+          {pct == null ? "—" : `${pct.toFixed(0)}%`}
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
+        <div className={`h-full rounded-full ${covered ? "bg-green-500" : "bg-brand"}`} style={{ width: `${width}%` }} />
+      </div>
+      <div className="mt-1 text-xs text-neutral-400">{money(have)} of {money(need)}</div>
     </div>
   );
 }

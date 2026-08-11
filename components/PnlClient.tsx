@@ -85,7 +85,7 @@ export default function PnlClient() {
           <Row label={`Overheads (${calc.days === 30 ? "prorated" : `prorated, ${calc.days}d`})`} value={"− " + money(calc.overheadsProrated)} />
           <div className="flex justify-between border-t border-neutral-200 pt-2 text-lg font-bold"><span>Net profit</span><span className={calc.net < 0 ? "text-red-600" : ""}>{money(calc.net)}</span></div>
           <div className="flex justify-between pt-3 text-neutral-500"><span>Orders</span><span>{calc.orders}</span></div>
-          <div className="flex justify-between text-neutral-500"><span>Food cost %</span><span>{calc.foodCost == null ? "—" : calc.foodCost.toFixed(2) + "%"}</span></div>
+          <div className="flex justify-between text-neutral-500"><span>COGS %</span><span>{calc.foodCost == null ? "—" : calc.foodCost.toFixed(2) + "%"}</span></div>
           {calc.revenue === 0 && <p className="pt-2 text-xs text-neutral-400">No confirmed revenue in this period.</p>}
           {overheadsMonthTotal > 0 && (
             <p className="pt-1 text-xs text-neutral-400">
