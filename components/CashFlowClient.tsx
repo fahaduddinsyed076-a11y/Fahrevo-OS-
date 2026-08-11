@@ -6,9 +6,13 @@ import { computeCapital, type PaymentForCapital } from "@/lib/capital";
 import { money } from "@/lib/format";
 import type { AppSettings } from "@/lib/types";
 
-function numOrNull(v: string): number | null {
+// Returns null for a blank field (explicitly "not configured"), otherwise the
+// parsed number — which may be NaN for invalid input, so the caller can
+// reject it instead of silently saving a null/garbage value.
+function parseOpeningValue(v: string): number | null {
   const t = v.trim();
-  return t === "" ? null : Number(t);
+  if (t === "") return null;
+  return Number(t);
 }
 
 export default function CashFlowClient() {
@@ -21,6 +25,7 @@ export default function CashFlowClient() {
   const [f, setF] = useState({ opening_cash: "", opening_bank: "", opening_upi: "", opening_other: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,16 +47,32 @@ export default function CashFlowClient() {
   useEffect(() => { load(); }, [load]);
 
   async function saveOpening() {
-    setSaving(true);
     setError(null);
-    const { error } = await supabase.from("app_settings").update({
-      opening_cash: numOrNull(f.opening_cash),
-      opening_bank: numOrNull(f.opening_bank),
-      opening_upi: numOrNull(f.opening_upi),
-      opening_other: numOrNull(f.opening_other),
-    }).eq("id", true);
+    setSaved(false);
+
+    const parsed = {
+      opening_cash: parseOpeningValue(f.opening_cash),
+      opening_bank: parseOpeningValue(f.opening_bank),
+      opening_upi: parseOpeningValue(f.opening_upi),
+      opening_other: parseOpeningValue(f.opening_other),
+    };
+    // Reject invalid numbers explicitly instead of silently saving null.
+    for (const [key, val] of Object.entries(parsed)) {
+      if (val != null && !Number.isFinite(val)) {
+        setError(`"${f[key as keyof typeof f]}" is not a valid amount for ${key.replace("opening_", "opening ")}.`);
+        return;
+      }
+    }
+
+    setSaving(true);
+    const { error, data } = await supabase.from("app_settings").update(parsed).eq("id", true).select();
     setSaving(false);
     if (error) { setError(error.message); return; }
+    if (!data || data.length === 0) {
+      setError("Save did not apply — no matching settings row was found. Contact support.");
+      return;
+    }
+    setSaved(true);
     setShowEdit(false);
     load();
   }
@@ -71,7 +92,13 @@ export default function CashFlowClient() {
       {!capital.anyConfigured && !showEdit && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Opening balances not configured.{" "}
-          <button className="font-semibold underline" onClick={() => setShowEdit(true)}>Set them now →</button>
+          <button type="button" className="font-semibold underline" onClick={() => { setSaved(false); setShowEdit(true); }}>Set them now →</button>
+        </div>
+      )}
+
+      {saved && !showEdit && (
+        <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+          Opening balances saved.
         </div>
       )}
 
@@ -98,7 +125,7 @@ export default function CashFlowClient() {
       </div>
 
       <div className="flex justify-end">
-        <button className="btn-secondary" onClick={() => setShowEdit(!showEdit)}>
+        <button type="button" className="btn-secondary" onClick={() => { setSaved(false); setError(null); setShowEdit(!showEdit); }}>
           {showEdit ? "Cancel" : "Set opening balances"}
         </button>
       </div>
@@ -127,7 +154,7 @@ export default function CashFlowClient() {
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2">
-            <button className="btn" onClick={saveOpening} disabled={saving}>{saving ? "Saving…" : "Save opening balances"}</button>
+            <button type="button" className="btn" onClick={saveOpening} disabled={saving}>{saving ? "Saving…" : "Save opening balances"}</button>
           </div>
         </div>
       )}

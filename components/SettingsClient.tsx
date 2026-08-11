@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AppSettings } from "@/lib/types";
 
-function numOrNull(v: string): number | null {
+function parseOpeningValue(v: string): number | null {
   const t = v.trim();
   return t === "" ? null : Number(t);
 }
@@ -40,17 +40,32 @@ export default function SettingsClient() {
 
   async function save() {
     setError(null); setSaved(false);
+
+    const parsedOpening = {
+      opening_cash: parseOpeningValue(f.opening_cash),
+      opening_bank: parseOpeningValue(f.opening_bank),
+      opening_upi: parseOpeningValue(f.opening_upi),
+      opening_other: parseOpeningValue(f.opening_other),
+    };
+    for (const [key, val] of Object.entries(parsedOpening)) {
+      if (val != null && !Number.isFinite(val)) {
+        setError(`"${f[key as keyof typeof f]}" is not a valid amount for ${key.replace("opening_", "opening ")}.`);
+        return;
+      }
+    }
+
     const cats = f.categories.split(",").map((c) => c.trim()).filter(Boolean);
-    const { error } = await supabase.from("app_settings").update({
+    const { error, data } = await supabase.from("app_settings").update({
       business_name: f.business_name.trim() || null,
-      opening_cash: numOrNull(f.opening_cash),
-      opening_bank: numOrNull(f.opening_bank),
-      opening_upi: numOrNull(f.opening_upi),
-      opening_other: numOrNull(f.opening_other),
+      ...parsedOpening,
       opening_balance_date: f.opening_balance_date || null,
       expense_categories: cats.length ? cats : null,
-    }).eq("id", true);
+    }).eq("id", true).select();
     if (error) { setError(error.message); return; }
+    if (!data || data.length === 0) {
+      setError("Save did not apply — no matching settings row was found. Contact support.");
+      return;
+    }
     setSaved(true); load();
   }
 
@@ -79,7 +94,7 @@ export default function SettingsClient() {
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {saved && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">Settings saved.</p>}
-      <button className="btn" onClick={save}>Save settings</button>
+      <button type="button" className="btn" onClick={save}>Save settings</button>
     </div>
   );
 }
