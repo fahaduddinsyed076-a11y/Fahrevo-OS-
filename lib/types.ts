@@ -134,3 +134,16 @@ export type AppSettings = {
   opening_balance_date: string | null;
   expense_categories: string[];
 };
+
+// Recurring monthly fixed cost — a planning entry only. It never creates an
+// expenses/payments row, so it has no direct cash effect of its own.
+export type Overhead = {
+  id: string;
+  name: string;
+  category: string;
+  monthly_amount: number;
+  active_status: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};

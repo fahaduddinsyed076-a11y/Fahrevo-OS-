@@ -27,3 +27,15 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
   "Platform Fees",
   "Miscellaneous",
 ] as const;
+
+// Suggested categories for recurring monthly overheads (editable free text).
+export const DEFAULT_OVERHEAD_CATEGORIES = [
+  "Rent",
+  "Payroll",
+  "Marketing",
+  "Utilities",
+  "Internet",
+  "Software",
+  "Misc",
+  "Other",
+] as const;

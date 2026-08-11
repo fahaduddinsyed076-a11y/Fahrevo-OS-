@@ -59,6 +59,7 @@ export default function NewSaleClient() {
   // Quick-add customer
   const [showAddCust, setShowAddCust] = useState(false);
   const [newCustName, setNewCustName] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
   const [newCustType, setNewCustType] = useState<CustomerType>("B2C");
 
   const productById = useMemo(() => {
@@ -137,13 +138,14 @@ export default function NewSaleClient() {
   async function addCustomer() {
     if (!newCustName.trim()) return;
     const { data, error } = await supabase.from("customers")
-      .insert({ customer_name: newCustName.trim(), customer_type: newCustType })
+      .insert({ customer_name: newCustName.trim(), customer_type: newCustType, phone: newCustPhone.trim() || null })
       .select("id,customer_name,customer_type,active_status").single();
     if (error) { setError(error.message); return; }
     const c = data as Customer;
     setCustomers((prev) => [...prev, c].sort((a, b) => a.customer_name.localeCompare(b.customer_name)));
     setShowAddCust(false);
     setNewCustName("");
+    setNewCustPhone("");
     onCustomerChange(c.id);
   }
 
@@ -247,9 +249,11 @@ export default function NewSaleClient() {
             <button className="btn-secondary shrink-0" type="button" onClick={() => setShowAddCust(!showAddCust)}>+ New</button>
           </div>
           {showAddCust && (
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <input className="input" placeholder="Customer name" value={newCustName}
                 onChange={(e) => setNewCustName(e.target.value)} />
+              <input className="input" type="tel" placeholder="Contact number (optional)" value={newCustPhone}
+                onChange={(e) => setNewCustPhone(e.target.value)} />
               <select className="input w-28" value={newCustType} onChange={(e) => setNewCustType(e.target.value as CustomerType)}>
                 {CUSTOMER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
