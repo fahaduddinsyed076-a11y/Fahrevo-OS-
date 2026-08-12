@@ -5,12 +5,29 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const RESEND_COOLDOWN_SECONDS = 60;
+const LAST_SENT_KEY_PREFIX = "fahrevo_otp_last_sent:";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
   if (!domain) return email;
   const visible = local.slice(0, Math.min(2, local.length));
   return `${visible}${"•".repeat(Math.max(3, local.length - visible.length))}@${domain}`;
+}
+
+// Supabase enforces its own ~60s minimum interval between OTP requests for
+// the same email. We remember the last send time (per email, survives a page
+// refresh) so re-mounting this page doesn't blindly re-request into that
+// cooldown and produce a misleading "couldn't send" error.
+function secondsSinceLastSend(email: string): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem(LAST_SENT_KEY_PREFIX + email);
+  if (!raw) return null;
+  const elapsed = (Date.now() - Number(raw)) / 1000;
+  return Number.isFinite(elapsed) ? elapsed : null;
+}
+function recordSend(email: string) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(LAST_SENT_KEY_PREFIX + email, String(Date.now()));
 }
 
 export default function VerifyOtpPage() {
@@ -38,10 +55,24 @@ export default function VerifyOtpPage() {
         options: { shouldCreateUser: false },
       });
       if (error) throw error;
+      recordSend(addr);
       setInfo(`A verification code was sent to ${maskEmail(addr)}.`);
       setCooldown(RESEND_COOLDOWN_SECONDS);
-    } catch {
-      setError("Could not send a verification code right now. Please try again shortly.");
+    } catch (err) {
+      // Supabase itself rate-limits repeated OTP requests for the same
+      // email (~60s). That's not a delivery failure — say so accurately
+      // instead of a generic error, and start the cooldown from what
+      // Supabase actually told us.
+      const status = (err as { status?: number } | null)?.status;
+      const message = err instanceof Error ? err.message : "";
+      if (status === 429 || /security purposes/i.test(message)) {
+        const secondsMatch = message.match(/after (\d+) seconds?/i);
+        const remaining = secondsMatch ? Number(secondsMatch[1]) : RESEND_COOLDOWN_SECONDS;
+        setInfo(`A code was already sent to ${maskEmail(addr)} — check your inbox, or wait to resend.`);
+        setCooldown(remaining);
+      } else {
+        setError("Could not send a verification code right now. Please try again shortly.");
+      }
     } finally {
       setSending(false);
     }
@@ -58,8 +89,17 @@ export default function VerifyOtpPage() {
       }
       setEmail(user.email);
       setCheckingSession(false);
-      if (!sentOnce.current) {
-        sentOnce.current = true;
+      if (sentOnce.current) return;
+      sentOnce.current = true;
+
+      const elapsed = secondsSinceLastSend(user.email);
+      if (elapsed != null && elapsed < RESEND_COOLDOWN_SECONDS) {
+        // A code was already sent very recently (e.g. this is a page
+        // refresh) — don't re-request into Supabase's cooldown, just
+        // reflect the remaining wait and let the user check their inbox.
+        setInfo(`A code was already sent to ${maskEmail(user.email)} — check your inbox, or wait to resend.`);
+        setCooldown(Math.ceil(RESEND_COOLDOWN_SECONDS - elapsed));
+      } else {
         sendCode(user.email, { silent: false });
       }
     })();
