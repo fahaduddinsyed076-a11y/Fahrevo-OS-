@@ -1,6 +1,13 @@
 # Environment files (local secrets / per-machine config)
 .env
 .env.local
+.env*.local
+
+# Node / build
+node_modules/
+.next/
+next-env.d.ts.timestamp
+out/
 
 # Supabase CLI local artifacts
 supabase/.temp/
