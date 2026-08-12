@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const LAST_SENT_KEY_PREFIX = "fahrevo_otp_last_sent:";
+// Supabase's OTP length isn't fixed or discoverable in advance (this project
+// currently sends 8 digits) — accept a generous range rather than assuming
+// any exact length, and never truncate what the user typed.
+const MIN_OTP_LENGTH = 6;
+const MAX_OTP_LENGTH = 12;
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -161,7 +166,7 @@ export default function VerifyOtpPage() {
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-neutral-900">Verify it&apos;s you</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Enter the 6-digit code sent to {email ? maskEmail(email) : "your email"}.
+            Enter the verification code sent to {email ? maskEmail(email) : "your email"}.
           </p>
         </div>
 
@@ -170,18 +175,18 @@ export default function VerifyOtpPage() {
             <label className="label" htmlFor="otp">Verification code</label>
             <input
               id="otp" inputMode="numeric" autoComplete="one-time-code" autoFocus
-              maxLength={6}
-              className="input text-center text-lg font-semibold tracking-[0.5em]"
+              maxLength={MAX_OTP_LENGTH}
+              className="input text-center text-lg font-semibold tracking-[0.3em]"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="——————"
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, MAX_OTP_LENGTH))}
+              placeholder="Enter code"
             />
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           {info && !error && <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">{info}</p>}
 
-          <button type="submit" className="btn w-full" disabled={verifying || code.length !== 6}>
+          <button type="submit" className="btn w-full" disabled={verifying || code.length < MIN_OTP_LENGTH}>
             {verifying ? "Verifying…" : "Verify & continue"}
           </button>
 
