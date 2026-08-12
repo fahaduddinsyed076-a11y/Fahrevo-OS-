@@ -16,7 +16,7 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(OTP_SESSION_COOKIE, createOtpSessionCookieValue(user.id), {
+  response.cookies.set(OTP_SESSION_COOKIE, await createOtpSessionCookieValue(user.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

@@ -21,7 +21,7 @@ export default async function ProtectedLayout({
   if (!user) redirect("/login");
 
   const otpCookie = cookies().get(OTP_SESSION_COOKIE)?.value;
-  if (!isOtpSessionValid(otpCookie, user.id)) redirect("/login");
+  if (!(await isOtpSessionValid(otpCookie, user.id))) redirect("/login");
 
   return <AppShell email={user.email ?? "Signed in"}>{children}</AppShell>;
 }

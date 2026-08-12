@@ -50,7 +50,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const otpCookie = request.cookies.get(OTP_SESSION_COOKIE)?.value;
-  const otpValid = isOtpSessionValid(otpCookie, user.id);
+  const otpValid = await isOtpSessionValid(otpCookie, user.id);
 
   if (isLoginPage) {
     // Already password-authenticated -> skip straight past login.
